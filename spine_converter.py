@@ -7,12 +7,28 @@ def calculate_angle(a, b):
 def calculate_length(a, b):
     return math.sqrt((b['x'] - a['x'])**2 + (b['y'] - a['y'])**2)
 
+def create_line_attachment(bone_name, length):
+    return {
+        bone_name: {
+            "line": {
+                "name": "line",
+                "path": "images/line.png",
+                "x": 0,
+                "y": 0,
+                "scaleX": length / 100,  # Assuming the line.png is 100px long
+                "scaleY": 1,
+                "width": 100,
+                "height": 5
+            }
+        }
+    }
+
 def convert_to_spine(input_file, output_file):
     with open(input_file, 'r') as f:
         data = json.load(f)
 
     spine_data = {
-        "skeleton": {"hash": " ", "spine": "3.8.99", "width": 1000, "height": 1000},
+        "skeleton": {"hash": " ", "width": 1000, "height": 1000},
         "bones": [
             {"name": "root"},
             {"name": "hip", "parent": "root"},
@@ -40,18 +56,20 @@ def convert_to_spine(input_file, output_file):
 
     fps = data["fps"]
     frames = data["frames"]
-    scale_factor = 1000  # Adjust this if needed
+    scale_factor = 500  # Adjusted scale factor
 
     for bone in spine_data["bones"]:
-        spine_data["animations"]["animation"]["bones"][bone["name"]] = {"translate": [], "rotate": []}
+        spine_data["animations"]["animation"]["bones"][bone["name"]] = {"translate": [], "rotate": [], "scale": []}
 
     # Process first frame to set initial bone lengths
     first_frame = frames[0]["landmarks"]
     def get_pos(index):
         return {
             "x": first_frame[index]["x"] * scale_factor,
-            "y": first_frame[index]["y"] * scale_factor  # No longer inverted
+            "y": first_frame[index]["y"] * scale_factor
         }
+
+    shoulder_width_factor = 1.5  # Increase shoulder width
 
     bone_data = [
         ("hip", 23, 24),
@@ -73,6 +91,7 @@ def convert_to_spine(input_file, output_file):
         ("rightFoot", 28, 32)
     ]
 
+    # Set initial bone positions and lengths
     for bone_name, start_idx, end_idx in bone_data:
         start = get_pos(start_idx)
         end = get_pos(end_idx)
@@ -82,6 +101,8 @@ def convert_to_spine(input_file, output_file):
                 bone["length"] = length
                 bone["x"] = end["x"] - start["x"]
                 bone["y"] = end["y"] - start["y"]
+                if "Shoulder" in bone_name:
+                    bone["x"] *= shoulder_width_factor
                 break
 
     for frame in frames:
@@ -92,7 +113,7 @@ def convert_to_spine(input_file, output_file):
         def get_pos(index):
             return {
                 "x": landmarks[index]["x"] * scale_factor,
-                "y": landmarks[index]["y"] * scale_factor  # No longer inverted
+                "y": landmarks[index]["y"] * scale_factor
             }
 
         hip_center = get_pos(23)  # Use left hip as center
@@ -100,7 +121,17 @@ def convert_to_spine(input_file, output_file):
         for bone_name, start_idx, end_idx in bone_data:
             start = get_pos(start_idx)
             end = get_pos(end_idx)
+            
+            if "Shoulder" in bone_name:
+                if "left" in bone_name:
+                    start["x"] -= (end["x"] - start["x"]) * (shoulder_width_factor - 1) / 2
+                else:
+                    start["x"] += (end["x"] - start["x"]) * (shoulder_width_factor - 1) / 2
+            
             angle = calculate_angle(start, end)
+            length = calculate_length(start, end)
+            original_length = next(bone["length"] for bone in spine_data["bones"] if bone["name"] == bone_name)
+            scale = length / original_length if original_length != 0 else 1
             
             spine_data["animations"]["animation"]["bones"][bone_name]["translate"].append({
                 "time": time,
@@ -111,6 +142,11 @@ def convert_to_spine(input_file, output_file):
                 "time": time,
                 "angle": angle
             })
+            spine_data["animations"]["animation"]["bones"][bone_name]["scale"].append({
+                "time": time,
+                "x": scale,
+                "y": scale
+            })
 
         # Set root motion
         spine_data["animations"]["animation"]["bones"]["root"]["translate"].append({
@@ -118,6 +154,16 @@ def convert_to_spine(input_file, output_file):
             "x": hip_center["x"],
             "y": hip_center["y"]
         })
+
+    # Add slots and attachments
+    spine_data["slots"] = [{"name": bone["name"], "bone": bone["name"], "attachment": "line"} for bone in spine_data["bones"]]
+    
+    for bone in spine_data["bones"]:
+        if "length" in bone:
+            spine_data["skins"]["default"].update(create_line_attachment(bone["name"], bone["length"]))
+
+    # Add the image to the Spine JSON
+    spine_data["skeleton"]["images"] = "./images/"
 
     with open(output_file, 'w') as f:
         json.dump(spine_data, f, indent=2)
