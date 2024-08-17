@@ -4,6 +4,9 @@ import math
 def calculate_angle(a, b):
     return math.degrees(math.atan2(b['y'] - a['y'], b['x'] - a['x']))
 
+def calculate_length(a, b):
+    return math.sqrt((b['x'] - a['x'])**2 + (b['y'] - a['y'])**2)
+
 def convert_to_spine(input_file, output_file):
     with open(input_file, 'r') as f:
         data = json.load(f)
@@ -37,10 +40,49 @@ def convert_to_spine(input_file, output_file):
 
     fps = data["fps"]
     frames = data["frames"]
-    scale_factor = 500  # Adjust this as needed
+    scale_factor = 1000  # Adjust this if needed
 
     for bone in spine_data["bones"]:
         spine_data["animations"]["animation"]["bones"][bone["name"]] = {"translate": [], "rotate": []}
+
+    # Process first frame to set initial bone lengths
+    first_frame = frames[0]["landmarks"]
+    def get_pos(index):
+        return {
+            "x": first_frame[index]["x"] * scale_factor,
+            "y": first_frame[index]["y"] * scale_factor  # No longer inverted
+        }
+
+    bone_data = [
+        ("hip", 23, 24),
+        ("spine", 23, 11),
+        ("chest", 11, 12),
+        ("neck", 12, 0),
+        ("head", 0, 0),
+        ("leftShoulder", 11, 13),
+        ("leftArm", 13, 15),
+        ("leftForearm", 15, 17),
+        ("rightShoulder", 12, 14),
+        ("rightArm", 14, 16),
+        ("rightForearm", 16, 18),
+        ("leftUpLeg", 23, 25),
+        ("leftLeg", 25, 27),
+        ("leftFoot", 27, 31),
+        ("rightUpLeg", 24, 26),
+        ("rightLeg", 26, 28),
+        ("rightFoot", 28, 32)
+    ]
+
+    for bone_name, start_idx, end_idx in bone_data:
+        start = get_pos(start_idx)
+        end = get_pos(end_idx)
+        length = calculate_length(start, end)
+        for bone in spine_data["bones"]:
+            if bone["name"] == bone_name:
+                bone["length"] = length
+                bone["x"] = end["x"] - start["x"]
+                bone["y"] = end["y"] - start["y"]
+                break
 
     for frame in frames:
         frame_num = frame["frame"]
@@ -53,49 +95,17 @@ def convert_to_spine(input_file, output_file):
                 "y": landmarks[index]["y"] * scale_factor  # No longer inverted
             }
 
-        # Map MediaPipe landmarks to Spine bones
-        hip = get_pos(23)  # Left hip as center
-        spine = get_pos(11)  # Left shoulder
-        neck = get_pos(0)  # Nose
-        left_shoulder = get_pos(11)
-        left_elbow = get_pos(13)
-        left_wrist = get_pos(15)
-        right_shoulder = get_pos(12)
-        right_elbow = get_pos(14)
-        right_wrist = get_pos(16)
-        left_hip = get_pos(23)
-        left_knee = get_pos(25)
-        left_ankle = get_pos(27)
-        right_hip = get_pos(24)
-        right_knee = get_pos(26)
-        right_ankle = get_pos(28)
+        hip_center = get_pos(23)  # Use left hip as center
 
-        # Calculate and set positions and rotations
-        bone_data = [
-            ("hip", hip, spine),
-            ("spine", spine, neck),
-            ("neck", spine, neck),
-            ("head", neck, get_pos(0)),
-            ("leftShoulder", spine, left_shoulder),
-            ("leftArm", left_shoulder, left_elbow),
-            ("leftForearm", left_elbow, left_wrist),
-            ("rightShoulder", spine, right_shoulder),
-            ("rightArm", right_shoulder, right_elbow),
-            ("rightForearm", right_elbow, right_wrist),
-            ("leftUpLeg", hip, left_knee),
-            ("leftLeg", left_knee, left_ankle),
-            ("leftFoot", left_ankle, get_pos(31)),
-            ("rightUpLeg", hip, right_knee),
-            ("rightLeg", right_knee, right_ankle),
-            ("rightFoot", right_ankle, get_pos(32))
-        ]
-
-        for bone_name, start, end in bone_data:
+        for bone_name, start_idx, end_idx in bone_data:
+            start = get_pos(start_idx)
+            end = get_pos(end_idx)
             angle = calculate_angle(start, end)
+            
             spine_data["animations"]["animation"]["bones"][bone_name]["translate"].append({
                 "time": time,
-                "x": start["x"] - hip["x"],
-                "y": start["y"] - hip["y"]
+                "x": start["x"] - hip_center["x"],
+                "y": start["y"] - hip_center["y"]
             })
             spine_data["animations"]["animation"]["bones"][bone_name]["rotate"].append({
                 "time": time,
@@ -105,8 +115,8 @@ def convert_to_spine(input_file, output_file):
         # Set root motion
         spine_data["animations"]["animation"]["bones"]["root"]["translate"].append({
             "time": time,
-            "x": hip["x"],
-            "y": hip["y"]
+            "x": hip_center["x"],
+            "y": hip_center["y"]
         })
 
     with open(output_file, 'w') as f:
