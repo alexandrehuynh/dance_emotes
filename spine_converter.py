@@ -15,7 +15,7 @@ def create_line_attachment(bone_name, length):
                 "path": "images/line.png",
                 "x": 0,
                 "y": 0,
-                "scaleX": length / 100,  # Assuming the line.png is 100px long
+                "scaleX": length / 100,
                 "scaleY": 1,
                 "width": 100,
                 "height": 5
@@ -28,26 +28,29 @@ def convert_to_spine(input_file, output_file):
         data = json.load(f)
 
     spine_data = {
-        "skeleton": {"hash": " ", "width": 1000, "height": 1000},
+        "skeleton": {"hash": " ", "spine": "4.2.35", "width": 1000, "height": 1000},
         "bones": [
             {"name": "root"},
-            {"name": "hip", "parent": "root"},
-            {"name": "spine", "parent": "hip"},
+            {"name": "leftHip", "parent": "root"},
+            {"name": "rightHip", "parent": "root"},
+            {"name": "spine", "parent": "root"},
             {"name": "chest", "parent": "spine"},
             {"name": "neck", "parent": "chest"},
             {"name": "head", "parent": "neck"},
             {"name": "leftShoulder", "parent": "chest"},
-            {"name": "leftArm", "parent": "leftShoulder"},
-            {"name": "leftForearm", "parent": "leftArm"},
+            {"name": "leftUpperArm", "parent": "leftShoulder"},
+            {"name": "leftLowerArm", "parent": "leftUpperArm"},
+            {"name": "leftHand", "parent": "leftLowerArm"},
             {"name": "rightShoulder", "parent": "chest"},
-            {"name": "rightArm", "parent": "rightShoulder"},
-            {"name": "rightForearm", "parent": "rightArm"},
-            {"name": "leftUpLeg", "parent": "hip"},
-            {"name": "leftLeg", "parent": "leftUpLeg"},
-            {"name": "leftFoot", "parent": "leftLeg"},
-            {"name": "rightUpLeg", "parent": "hip"},
-            {"name": "rightLeg", "parent": "rightUpLeg"},
-            {"name": "rightFoot", "parent": "rightLeg"}
+            {"name": "rightUpperArm", "parent": "rightShoulder"},
+            {"name": "rightLowerArm", "parent": "rightUpperArm"},
+            {"name": "rightHand", "parent": "rightLowerArm"},
+            {"name": "leftUpperLeg", "parent": "leftHip"},
+            {"name": "leftLowerLeg", "parent": "leftUpperLeg"},
+            {"name": "leftFoot", "parent": "leftLowerLeg"},
+            {"name": "rightUpperLeg", "parent": "rightHip"},
+            {"name": "rightLowerLeg", "parent": "rightUpperLeg"},
+            {"name": "rightFoot", "parent": "rightLowerLeg"}
         ],
         "slots": [],
         "skins": {"default": {}},
@@ -56,7 +59,7 @@ def convert_to_spine(input_file, output_file):
 
     fps = data["fps"]
     frames = data["frames"]
-    scale_factor = 500  # Adjusted scale factor
+    scale_factor = 500
 
     for bone in spine_data["bones"]:
         spine_data["animations"]["animation"]["bones"][bone["name"]] = {"translate": [], "rotate": [], "scale": []}
@@ -69,25 +72,26 @@ def convert_to_spine(input_file, output_file):
             "y": first_frame[index]["y"] * scale_factor
         }
 
-    shoulder_width_factor = 1.5  # Increase shoulder width
-
     bone_data = [
-        ("hip", 23, 24),
+        ("leftHip", 23, 24),
+        ("rightHip", 24, 23),
         ("spine", 23, 11),
         ("chest", 11, 12),
         ("neck", 12, 0),
         ("head", 0, 0),
         ("leftShoulder", 11, 13),
-        ("leftArm", 13, 15),
-        ("leftForearm", 15, 17),
+        ("leftUpperArm", 13, 15),
+        ("leftLowerArm", 15, 17),
+        ("leftHand", 17, 19),
         ("rightShoulder", 12, 14),
-        ("rightArm", 14, 16),
-        ("rightForearm", 16, 18),
-        ("leftUpLeg", 23, 25),
-        ("leftLeg", 25, 27),
+        ("rightUpperArm", 14, 16),
+        ("rightLowerArm", 16, 18),
+        ("rightHand", 18, 20),
+        ("leftUpperLeg", 23, 25),
+        ("leftLowerLeg", 25, 27),
         ("leftFoot", 27, 31),
-        ("rightUpLeg", 24, 26),
-        ("rightLeg", 26, 28),
+        ("rightUpperLeg", 24, 26),
+        ("rightLowerLeg", 26, 28),
         ("rightFoot", 28, 32)
     ]
 
@@ -101,8 +105,6 @@ def convert_to_spine(input_file, output_file):
                 bone["length"] = length
                 bone["x"] = end["x"] - start["x"]
                 bone["y"] = end["y"] - start["y"]
-                if "Shoulder" in bone_name:
-                    bone["x"] *= shoulder_width_factor
                 break
 
     for frame in frames:
@@ -116,17 +118,11 @@ def convert_to_spine(input_file, output_file):
                 "y": landmarks[index]["y"] * scale_factor
             }
 
-        hip_center = get_pos(23)  # Use left hip as center
+        root_position = get_pos(23)  # Use left hip as root
 
         for bone_name, start_idx, end_idx in bone_data:
             start = get_pos(start_idx)
             end = get_pos(end_idx)
-            
-            if "Shoulder" in bone_name:
-                if "left" in bone_name:
-                    start["x"] -= (end["x"] - start["x"]) * (shoulder_width_factor - 1) / 2
-                else:
-                    start["x"] += (end["x"] - start["x"]) * (shoulder_width_factor - 1) / 2
             
             angle = calculate_angle(start, end)
             length = calculate_length(start, end)
@@ -135,8 +131,8 @@ def convert_to_spine(input_file, output_file):
             
             spine_data["animations"]["animation"]["bones"][bone_name]["translate"].append({
                 "time": time,
-                "x": start["x"] - hip_center["x"],
-                "y": start["y"] - hip_center["y"]
+                "x": start["x"] - root_position["x"],
+                "y": start["y"] - root_position["y"]
             })
             spine_data["animations"]["animation"]["bones"][bone_name]["rotate"].append({
                 "time": time,
@@ -151,8 +147,8 @@ def convert_to_spine(input_file, output_file):
         # Set root motion
         spine_data["animations"]["animation"]["bones"]["root"]["translate"].append({
             "time": time,
-            "x": hip_center["x"],
-            "y": hip_center["y"]
+            "x": root_position["x"],
+            "y": root_position["y"]
         })
 
     # Add slots and attachments
