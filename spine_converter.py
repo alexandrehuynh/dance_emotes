@@ -27,30 +27,60 @@ def convert_to_spine(input_file, output_file):
             {"name": "leftElbow", "parent": "leftUpperArm"},
             {"name": "leftForearm", "parent": "leftElbow"},
             {"name": "leftHand", "parent": "leftForearm"},
-            # {"name": "leftHandThumb", "parent": "leftHand"},
-            # {"name": "leftHandIndex", "parent": "leftHand"},
-            # {"name": "leftHandPinky", "parent": "leftHand"},
             {"name": "rightShoulder", "parent": "chest"},
             {"name": "rightUpperArm", "parent": "rightShoulder"},
             {"name": "rightElbow", "parent": "rightUpperArm"},
             {"name": "rightForearm", "parent": "rightElbow"},
             {"name": "rightHand", "parent": "rightForearm"},
-            # {"name": "rightHandThumb", "parent": "rightHand"},
-            # {"name": "rightHandIndex", "parent": "rightHand"},
-            # {"name": "rightHandPinky", "parent": "rightHand"},
             {"name": "leftUpperLeg", "parent": "leftHip"},
             {"name": "leftKnee", "parent": "leftUpperLeg"},
             {"name": "leftLowerLeg", "parent": "leftKnee"},
             {"name": "leftFoot", "parent": "leftLowerLeg"},
-            # {"name": "leftToe", "parent": "leftFoot"},
             {"name": "rightUpperLeg", "parent": "rightHip"},
             {"name": "rightKnee", "parent": "rightUpperLeg"},
             {"name": "rightLowerLeg", "parent": "rightKnee"},
             {"name": "rightFoot", "parent": "rightLowerLeg"},
-            # {"name": "rightToe", "parent": "rightFoot"}
         ],
-        "slots": [],
-        "skins": {"default": {}},
+        "slots": [
+            {"name": "hips", "bone": "hips", "attachment": "line"},
+            {"name": "spine", "bone": "spine", "attachment": "line"},
+            {"name": "chest", "bone": "chest", "attachment": "line"},
+            {"name": "neck", "bone": "neck", "attachment": "line"},
+            {"name": "head", "bone": "head", "attachment": "line"},
+            {"name": "leftUpperArm", "bone": "leftUpperArm", "attachment": "line"},
+            {"name": "leftForearm", "bone": "leftForearm", "attachment": "line"},
+            {"name": "leftHand", "bone": "leftHand", "attachment": "line"},
+            {"name": "rightUpperArm", "bone": "rightUpperArm", "attachment": "line"},
+            {"name": "rightForearm", "bone": "rightForearm", "attachment": "line"},
+            {"name": "rightHand", "bone": "rightHand", "attachment": "line"},
+            {"name": "leftUpperLeg", "bone": "leftUpperLeg", "attachment": "line"},
+            {"name": "leftLowerLeg", "bone": "leftLowerLeg", "attachment": "line"},
+            {"name": "leftFoot", "bone": "leftFoot", "attachment": "line"},
+            {"name": "rightUpperLeg", "bone": "rightUpperLeg", "attachment": "line"},
+            {"name": "rightLowerLeg", "bone": "rightLowerLeg", "attachment": "line"},
+            {"name": "rightFoot", "bone": "rightFoot", "attachment": "line"},
+        ],
+        "skins": {
+            "default": {
+                "hips": {"hips": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+                "spine": {"spine": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+                "chest": {"chest": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+                "neck": {"neck": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 30, "height": 5}},
+                "head": {"head": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 80, "height": 5}},
+                "leftUpperArm": {"leftUpperArm": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 40, "height": 5}},
+                "leftForearm": {"leftForearm": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 30, "height": 5}},
+                "leftHand": {"leftHand": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 30, "height": 5}},
+                "rightUpperArm": {"rightUpperArm": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 40, "height": 5}},
+                "rightForearm": {"rightForearm": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 30, "height": 5}},
+                "rightHand": {"rightHand": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 30, "height": 5}},
+                "leftUpperLeg": {"leftUpperLeg": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 60, "height": 5}},
+                "leftLowerLeg": {"leftLowerLeg": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+                "leftFoot": {"leftFoot": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+                "rightUpperLeg": {"rightUpperLeg": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 60, "height": 5}},
+                "rightLowerLeg": {"rightLowerLeg": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+                "rightFoot": {"rightFoot": {"x": 0, "y": 0, "scaleX": 1, "scaleY": 1, "rotation": 0, "width": 50, "height": 5}},
+            }
+        },
         "animations": {"animation": {"bones": {}}}
     }
 
@@ -74,27 +104,19 @@ def convert_to_spine(input_file, output_file):
         ("leftElbow", 15, 15),
         ("leftForearm", 15, 17),
         ("leftHand", 17, 19),
-        # ("leftHandThumb", 19, 21),
-        # ("leftHandIndex", 19, 20),
-        # ("leftHandPinky", 19, 17),
         ("rightShoulder", 12, 14),
         ("rightUpperArm", 14, 16),
         ("rightElbow", 16, 16),
         ("rightForearm", 16, 18),
         ("rightHand", 18, 20),
-        # ("rightHandThumb", 20, 22),
-        # ("rightHandIndex", 20, 21),
-        # ("rightHandPinky", 20, 18),
         ("leftUpperLeg", 23, 25),
         ("leftKnee", 25, 25),
         ("leftLowerLeg", 25, 27),
         ("leftFoot", 27, 31),
-        # ("leftToe", 31, 29),
         ("rightUpperLeg", 24, 26),
         ("rightKnee", 26, 26),
         ("rightLowerLeg", 26, 28),
         ("rightFoot", 28, 32),
-        # ("rightToe", 32, 30)
     ]
 
     for frame in frames:
@@ -127,6 +149,14 @@ def convert_to_spine(input_file, output_file):
                 "angle": angle
             })
 
+            # Update attachment position and size based on landmarks
+            if bone_name in spine_data["skins"]["default"]:
+                attachment = spine_data["skins"]["default"][bone_name][bone_name]
+                attachment["x"] = (start["x"] + end["x"]) / 2 - root_position["x"]
+                attachment["y"] = (start["y"] + end["y"]) / 2 - root_position["y"]
+                attachment["width"] = length
+                attachment["height"] = length / 2
+
         # Set root motion
         spine_data["animations"]["animation"]["bones"]["root"]["translate"].append({
             "time": time,
@@ -138,6 +168,5 @@ def convert_to_spine(input_file, output_file):
         json.dump(spine_data, f, indent=2)
 
     print(f"Spine animation data saved to {output_file}")
-
 # Usage
 # convert_to_spine("landmarks_output.json", "spine_animation.json")
