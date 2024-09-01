@@ -2,8 +2,12 @@ import json
 import os
 
 def generate_blender_script(input_file, output_file):
+    # Get absolute paths
+    input_file_abs = os.path.abspath(input_file)
+    output_file_abs = os.path.abspath(output_file)
+    
     # Get the directory of the output file
-    output_dir = os.path.dirname(output_file)
+    output_dir = os.path.dirname(output_file_abs)
     script_path = os.path.join(output_dir, "blender_conversion_script.py")
 
     script_content = f"""
