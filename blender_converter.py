@@ -13,34 +13,31 @@ def generate_blender_script(input_file, output_file):
     script_content = f"""
 import bpy
 import json
-import math
+from mathutils import Vector
 
-def create_armature():
-    # Create armature and object
-    armature = bpy.data.armatures.new("DanceArmature")
-    armature_object = bpy.data.objects.new("DanceArmature", armature)
+def create_humanoid_armature():
+    armature = bpy.data.armatures.new("MediaPipeArmature")
+    armature_object = bpy.data.objects.new("MediaPipeArmature", armature)
     
-    # Link armature object to the scene
     bpy.context.scene.collection.objects.link(armature_object)
-    
-    # Make armature active and go to edit mode
     bpy.context.view_layer.objects.active = armature_object
     bpy.ops.object.mode_set(mode='EDIT')
     
-    # Create bones
     bones = armature.edit_bones
     
-    # Add bones (adjust as needed based on your MediaPipe data)
-    bones.new("hips")
-    bones.new("spine").parent = bones["hips"]
-    bones.new("chest").parent = bones["spine"]
-    bones.new("neck").parent = bones["chest"]
-    bones.new("head").parent = bones["neck"]
+    # Create bones
+    root = bones.new("root")
+    spine = bones.new("spine")
+    spine.parent = root
+    neck = bones.new("neck")
+    neck.parent = spine
+    head = bones.new("head")
+    head.parent = neck
     
-    # Add arm bones
+    # Arms
     for side in ["left", "right"]:
         shoulder = bones.new(f"{{side}}_shoulder")
-        shoulder.parent = bones["chest"]
+        shoulder.parent = spine
         upper_arm = bones.new(f"{{side}}_upper_arm")
         upper_arm.parent = shoulder
         forearm = bones.new(f"{{side}}_forearm")
@@ -48,90 +45,90 @@ def create_armature():
         hand = bones.new(f"{{side}}_hand")
         hand.parent = forearm
     
-    # Add leg bones
+    # Legs
     for side in ["left", "right"]:
+        hip = bones.new(f"{{side}}_hip")
+        hip.parent = root
         thigh = bones.new(f"{{side}}_thigh")
-        thigh.parent = bones["hips"]
+        thigh.parent = hip
         shin = bones.new(f"{{side}}_shin")
         shin.parent = thigh
         foot = bones.new(f"{{side}}_foot")
         foot.parent = shin
     
-    # Exit edit mode
     bpy.ops.object.mode_set(mode='OBJECT')
-    
     return armature_object
 
-def set_bone_keyframe(action, bone_name, frame, start_landmark, end_landmark):
-    # Calculate bone position and rotation
-    x = (start_landmark["x"] + end_landmark["x"]) / 2
-    y = (start_landmark["y"] + end_landmark["y"]) / 2
-    z = (start_landmark["z"] + end_landmark["z"]) / 2
+def set_bone_keyframe(armature_object, bone_name, frame, start, end):
+    pose_bone = armature_object.pose.bones[bone_name]
     
-    # Calculate rotation (you might need to adjust this based on your coordinate system)
-    rotation = calculate_bone_rotation(start_landmark, end_landmark)
+    # Set location (only for root)
+    if bone_name == "root":
+        pose_bone.location = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2, (start[2] + end[2]) / 2)
+        pose_bone.keyframe_insert(data_path="location", frame=frame)
     
-    # Set keyframe
-    for i, value in enumerate([x, y, z]):
-        fcurve = action.fcurves.new(data_path=f'pose.bones["{{bone_name}}"].location', index=i)
-        keyframe = fcurve.keyframe_points.insert(frame, value)
-    
-    for i, value in enumerate(rotation):
-        fcurve = action.fcurves.new(data_path=f'pose.bones["{{bone_name}}"].rotation_euler', index=i)
-        keyframe = fcurve.keyframe_points.insert(frame, value)
+    # Set rotation
+    direction = Vector((end[0] - start[0], end[1] - start[1], end[2] - start[2]))
+    pose_bone.rotation_mode = 'QUATERNION'
+    pose_bone.rotation_quaternion = direction.to_track_quat('Y', 'Z')
+    pose_bone.keyframe_insert(data_path="rotation_quaternion", frame=frame)
 
-def calculate_bone_rotation(start, end):
-    # Calculate rotation based on bone direction
-    # This is a simplified calculation and might need adjustment
-    dx = end["x"] - start["x"]
-    dy = end["y"] - start["y"]
-    dz = end["z"] - start["z"]
-    
-    # Convert to Euler angles (XYZ order)
-    rotX = math.atan2(dy, dz)
-    rotY = math.atan2(-dx, math.sqrt(dy*dy + dz*dz))
-    rotZ = 0  # You might need to calculate this based on your needs
-    
-    return (rotX, rotY, rotZ)
-
-def convert_mediapipe_to_blender(input_file):
+def convert_mediapipe_to_blender(input_file, output_file):
     # Load MediaPipe data
     with open(input_file, 'r') as f:
         data = json.load(f)
     
     # Create armature
-    armature_object = create_armature()
+    armature_object = create_humanoid_armature()
     
     # Create animation data
     armature_object.animation_data_create()
-    action = bpy.data.actions.new(name="DanceAnimation")
+    action = bpy.data.actions.new(name="MediaPipeAnimation")
     armature_object.animation_data.action = action
     
-    # Set up key frames
-    fps = data["fps"]
-    frames = data["frames"]
+    # MediaPipe landmark to bone mapping
+    bone_mapping = {{
+        "root": (23, 24),  # Left hip, right hip
+        "spine": (23, 11),  # Left hip, left shoulder
+        "neck": (11, 12),  # Left shoulder, right shoulder
+        "head": (0, 1),  # Nose, left eye inner
+        "left_shoulder": (11, 13),
+        "left_upper_arm": (13, 15),
+        "left_forearm": (15, 17),
+        "left_hand": (17, 19),
+        "right_shoulder": (12, 14),
+        "right_upper_arm": (14, 16),
+        "right_forearm": (16, 18),
+        "right_hand": (18, 20),
+        "left_hip": (23, 25),
+        "left_thigh": (25, 27),
+        "left_shin": (27, 31),
+        "left_foot": (29, 31),
+        "right_hip": (24, 26),
+        "right_thigh": (26, 28),
+        "right_shin": (28, 32),
+        "right_foot": (30, 32)
+    }}
     
-    for frame in frames:
-        frame_num = frame["frame"]
-        landmarks = frame["landmarks"]
+    # Set keyframes for each frame
+    for frame in data['frames']:
+        frame_num = frame['frame']
+        landmarks = frame['landmarks']
         
-        # Set keyframes for each bone
-        # (You'll need to adjust this based on your specific bone setup and MediaPipe data)
-        set_bone_keyframe(action, "hips", frame_num, landmarks[23], landmarks[24])
-        set_bone_keyframe(action, "spine", frame_num, landmarks[23], landmarks[11])
-        set_bone_keyframe(action, "chest", frame_num, landmarks[11], landmarks[12])
-        set_bone_keyframe(action, "neck", frame_num, landmarks[12], landmarks[0])
-        
-        # Set keyframes for arms and legs...
+        for bone_name, (start_idx, end_idx) in bone_mapping.items():
+            start = landmarks[start_idx]
+            end = landmarks[end_idx]
+            set_bone_keyframe(armature_object, bone_name, frame_num, 
+                              (start['x'], start['y'], start['z']),
+                              (end['x'], end['y'], end['z']))
     
-    print(f"Animation imported from {{input_file}}")
+    # Save the Blender file
+    bpy.ops.wm.save_as_mainfile(filepath=output_file)
+    print(f"Animation imported from {{input_file}} and saved to {{output_file}}")
+
 
 # Run the conversion
-convert_mediapipe_to_blender("{input_file}")
-
-# Save the Blender file
-bpy.ops.wm.save_as_mainfile(filepath="{output_file}")
-print(f"Blender file saved as {{output_file}}")
+convert_mediapipe_to_blender("{input_file_abs}", "{output_file_abs}")
 """
 
     with open(script_path, "w") as f:
@@ -143,6 +140,8 @@ print(f"Blender file saved as {{output_file}}")
     print("2. Go to Scripting workspace")
     print("3. Open the generated script in the Text Editor")
     print("4. Click 'Run Script' or press Alt+P")
+
+    return script_path
 
 # Usage
 # generate_blender_script("landmarks_output.json", "blender_animation.blend")

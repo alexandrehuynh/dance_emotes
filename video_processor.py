@@ -9,7 +9,7 @@ class VideoProcessor:
         self.mp_drawing = mp.solutions.drawing_utils
         self.pose = self.mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-    def process_video(self, video_path, landmarks_output, overlay_video_output, skeleton_video_output):
+    def process_video(self, video_path, landmarks_output, overlay_video_output, skeleton_video_output, output_format):
         cap = cv2.VideoCapture(video_path)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -33,14 +33,26 @@ class VideoProcessor:
             results = self.pose.process(rgb_frame)
             
             if results.pose_landmarks:
-                # Save landmark data
-                frame_data = {
-                    "frame": frame_num,
-                    "landmarks": [
-                        {"x": lm.x, "y": 1 - lm.y, "z": lm.z}  # Invert y-axis for Spine compatibility
-                        for lm in results.pose_landmarks.landmark
-                    ]
-                }
+                # Process landmarks based on the selected output format
+                if output_format == "blender":
+                    frame_data = {
+                        "frame": frame_num,
+                        "landmarks": [
+                            {"x": lm.x, "y": lm.z, "z": -lm.y}  # Adjust for Blender's coordinate system
+                            for lm in results.pose_landmarks.landmark
+                        ]
+                    }
+                elif output_format == "spine":
+                    frame_data = {
+                        "frame": frame_num,
+                        "landmarks": [
+                            {"x": lm.x, "y": 1 - lm.y, "z": lm.z}  # Invert y-axis for Spine compatibility
+                            for lm in results.pose_landmarks.landmark
+                        ]
+                    }
+                else:
+                    raise ValueError(f"Unsupported output format: {output_format}")
+
                 landmarks_data.append(frame_data)
 
                 # Draw the pose annotation on the frame
