@@ -13,9 +13,10 @@ def generate_blender_script(input_file, output_file):
     script_content = f"""
 import bpy
 import json
-from mathutils import Vector
+import math
+from mathutils import Vector, Quaternion
 
-def create_humanoid_armature():
+def create_humanoid_armature(initial_landmarks):
     armature = bpy.data.armatures.new("MediaPipeArmature")
     armature_object = bpy.data.objects.new("MediaPipeArmature", armature)
     
@@ -25,64 +26,63 @@ def create_humanoid_armature():
     
     bones = armature.edit_bones
     
-    # Root
-    root = bones.new("root")
-    root.head = (0, 0, 0)
-    root.tail = (0, 0, 0.1)
+    hip_landmark = initial_landmarks[23]  # Left hip as reference
     
-    # Spine
-    spine = bones.new("spine")
-    spine.head = (0, 0, 0.1)
-    spine.tail = (0, 0, 0.5)
-    spine.parent = root
+    # Adjusted bone structure
+    bone_structure = {{
+        "spine": (23, 11),  # Left hip to left shoulder
+        "neck": (11, 0),  # Left shoulder to nose
+        "left_shoulder": (11, 13),
+        "left_upper_arm": (13, 15),
+        "left_forearm": (15, 17),
+        "left_hand": (17, 19),
+        "right_shoulder": (12, 14),
+        "right_upper_arm": (14, 16),
+        "right_forearm": (16, 18),
+        "right_hand": (18, 20),
+        "left_thigh": (23, 25),
+        "left_shin": (25, 27),
+        "left_foot": (27, 31),
+        "right_thigh": (24, 26),
+        "right_shin": (26, 28),
+        "right_foot": (28, 32)
+    }}
     
-    # Head
-    head = bones.new("head")
-    head.head = (0, 0, 0.5)
-    head.tail = (0, 0, 0.7)
-    head.parent = spine
+    for bone_name, (start_idx, end_idx) in bone_structure.items():
+        bone = bones.new(bone_name)
+        start_pos = convert_coordinates(initial_landmarks[start_idx], hip_landmark)
+        end_pos = convert_coordinates(initial_landmarks[end_idx], hip_landmark)
+        
+        bone.head = start_pos
+        bone.tail = end_pos
+        
+        if bone_name.startswith("left_") or bone_name.startswith("right_"):
+            parent_name = "_".join(bone_name.split("_")[:-1])
+            bone.parent = bones.get(parent_name)
+        elif bone_name == "neck":
+            bone.parent = bones.get("spine")
     
-    # Arms
-    for side in ["left", "right"]:
-        shoulder = bones.new(f"{{side}}_shoulder")
-        shoulder.head = (0.2 if side == "right" else -0.2, 0, 0.5)
-        shoulder.tail = (0.4 if side == "right" else -0.4, 0, 0.4)
-        shoulder.parent = spine
-        
-        upper_arm = bones.new(f"{{side}}_upper_arm")
-        upper_arm.head = shoulder.tail
-        upper_arm.tail = (0.6 if side == "right" else -0.6, 0, 0.2)
-        upper_arm.parent = shoulder
-        
-        forearm = bones.new(f"{{side}}_forearm")
-        forearm.head = upper_arm.tail
-        forearm.tail = (0.8 if side == "right" else -0.8, 0, 0)
-        forearm.parent = upper_arm
-        
-        hand = bones.new(f"{{side}}_hand")
-        hand.head = forearm.tail
-        hand.tail = (0.9 if side == "right" else -0.9, 0, 0)
-        hand.parent = forearm
-    
-    # Legs
-    for side in ["left", "right"]:
-        thigh = bones.new(f"{{side}}_thigh")
-        thigh.head = (0.1 if side == "right" else -0.1, 0, 0)
-        thigh.tail = (0.1 if side == "right" else -0.1, 0, -0.5)
-        thigh.parent = root
-        
-        shin = bones.new(f"{{side}}_shin")
-        shin.head = thigh.tail
-        shin.tail = (0.1 if side == "right" else -0.1, 0, -0.9)
-        shin.parent = thigh
-        
-        foot = bones.new(f"{{side}}_foot")
-        foot.head = shin.tail
-        foot.tail = (0.1 if side == "right" else -0.1, 0.2, -0.9)
-        foot.parent = shin
-    
+    # Ensure the armature is standing upright
     bpy.ops.object.mode_set(mode='OBJECT')
+    armature_object.rotation_euler = (math.radians(90), 0, 0)
+    
     return armature_object
+    
+def convert_coordinates(landmark, hip_landmark):
+    x = (landmark['x'] - hip_landmark['x'])
+    y = -(landmark['z'] - hip_landmark['z'])  # Negate for depth
+    z = -(landmark['y'] - hip_landmark['y'])  # Negate to invert Y axis
+    return (x, y, z)
+
+def calculate_bone_rotation(start_pos, end_pos):
+    # Calculate bone direction
+    direction = (Vector(end_pos) - Vector(start_pos)).normalized()
+    
+    # Create a rotation quaternion that aligns the bone with this direction
+    up_vector = Vector((0, 0, 1))
+    rotation = direction.to_track_quat('Y', 'Z')
+    
+    return rotation
 
 def set_bone_keyframe(armature_object, bone_name, frame, location, rotation):
     if bone_name not in armature_object.pose.bones:
@@ -103,8 +103,13 @@ def convert_mediapipe_to_blender(input_file, output_file):
     with open(input_file, 'r') as f:
         data = json.load(f)
     
-    # Create armature
-    armature_object = create_humanoid_armature()
+    if not data['frames']:
+        print("Error: No frame data found in the input file.")
+        return
+    
+    # Create armature based on the first frame of data
+    initial_landmarks = data['frames'][0]['landmarks']
+    armature_object = create_humanoid_armature(initial_landmarks)
     
     # Create animation data
     armature_object.animation_data_create()
@@ -113,43 +118,56 @@ def convert_mediapipe_to_blender(input_file, output_file):
     
     # MediaPipe landmark to bone mapping
     bone_mapping = {{
-        "root": 0,  # Nose (as a central point)
-        "spine": 23,  # Left hip
-        "head": 0,  # Nose
-        "left_shoulder": 11,
-        "left_upper_arm": 13,
-        "left_forearm": 15,
-        "left_hand": 19,
-        "right_shoulder": 12,
-        "right_upper_arm": 14,
-        "right_forearm": 16,
-        "right_hand": 20,
-        "left_thigh": 23,
-        "left_shin": 25,
-        "left_foot": 27,
-        "right_thigh": 24,
-        "right_shin": 26,
-        "right_foot": 28
+        "root": (0, 23),
+        "spine": (23, 24),
+        "neck": (11, 12),
+        "head": (0, 0),
+        "left_shoulder": (11, 13),
+        "left_upper_arm": (13, 15),
+        "left_forearm": (15, 17),
+        "left_hand": (17, 19),
+        "right_shoulder": (12, 14),
+        "right_upper_arm": (14, 16),
+        "right_forearm": (16, 18),
+        "right_hand": (18, 20),
+        "left_thigh": (23, 25),
+        "left_shin": (25, 27),
+        "left_foot": (27, 31),
+        "right_thigh": (24, 26),
+        "right_shin": (26, 28),
+        "right_foot": (28, 32)
     }}
     
     # Set keyframes for each frame
     for frame in data['frames']:
         frame_num = frame['frame']
         landmarks = frame['landmarks']
+        hip_landmark = landmarks[23]  # Left hip as reference
         
-        for bone_name, landmark_idx in bone_mapping.items():
-            landmark = landmarks[landmark_idx]
-            location = (landmark['x'], landmark['y'], landmark['z'])
-            
-            # For simplicity, we'll use identity quaternion for rotation
-            rotation = (1, 0, 0, 0)
-            
-            set_bone_keyframe(armature_object, bone_name, frame_num, location, rotation)
+        for bone_name, (start_idx, end_idx) in bone_mapping.items():
+            try:
+                start_landmark = landmarks[start_idx]
+                end_landmark = landmarks[end_idx]
+                
+                start_pos = convert_coordinates(start_landmark, hip_landmark)
+                end_pos = convert_coordinates(end_landmark, hip_landmark)
+                
+                # Use start position as location for the bone
+                location = start_pos
+                
+                # Calculate rotation based on bone direction
+                rotation = calculate_bone_rotation(start_pos, end_pos)
+                
+                set_bone_keyframe(armature_object, bone_name, frame_num, location, rotation)
+            except IndexError:
+                print(f"Warning: Missing landmark data for bone '{{bone_name}}' in frame {{frame_num}}")
     
     # Save the Blender file
     bpy.ops.wm.save_as_mainfile(filepath=output_file)
     print(f"Animation imported from {{input_file}} and saved to {{output_file}}")
 
+# Global scale factor to adjust MediaPipe data to Blender's scale
+SCALE_FACTOR = 8  # Adjust this value as needed
 
 # Run the conversion
 convert_mediapipe_to_blender("{input_file_abs}", "{output_file_abs}")

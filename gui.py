@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox, ttk
 from video_processor import VideoProcessor
 from spine_converter import convert_to_spine
 from blender_converter import generate_blender_script
+from landmark_visualizer import visualize_landmarks
 
 class VideoConverterGUI:
     def __init__(self, master):
@@ -73,6 +74,11 @@ class VideoConverterGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Error processing video: {e}")
             return
+
+        # Visualize landmarks
+        self.status_label.config(text="Generating landmark visualizations...")
+        self.master.update()
+        visualize_landmarks(landmarks_output, output_dir)
 
         # Convert based on selected type
         self.status_label.config(text=f"Converting to {output_format} format...")
