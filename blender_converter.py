@@ -25,52 +25,77 @@ def create_humanoid_armature():
     
     bones = armature.edit_bones
     
-    # Create bones
+    # Root
     root = bones.new("root")
+    root.head = (0, 0, 0)
+    root.tail = (0, 0, 0.1)
+    
+    # Spine
     spine = bones.new("spine")
+    spine.head = (0, 0, 0.1)
+    spine.tail = (0, 0, 0.5)
     spine.parent = root
-    neck = bones.new("neck")
-    neck.parent = spine
+    
+    # Head
     head = bones.new("head")
-    head.parent = neck
+    head.head = (0, 0, 0.5)
+    head.tail = (0, 0, 0.7)
+    head.parent = spine
     
     # Arms
     for side in ["left", "right"]:
         shoulder = bones.new(f"{{side}}_shoulder")
+        shoulder.head = (0.2 if side == "right" else -0.2, 0, 0.5)
+        shoulder.tail = (0.4 if side == "right" else -0.4, 0, 0.4)
         shoulder.parent = spine
+        
         upper_arm = bones.new(f"{{side}}_upper_arm")
+        upper_arm.head = shoulder.tail
+        upper_arm.tail = (0.6 if side == "right" else -0.6, 0, 0.2)
         upper_arm.parent = shoulder
+        
         forearm = bones.new(f"{{side}}_forearm")
+        forearm.head = upper_arm.tail
+        forearm.tail = (0.8 if side == "right" else -0.8, 0, 0)
         forearm.parent = upper_arm
+        
         hand = bones.new(f"{{side}}_hand")
+        hand.head = forearm.tail
+        hand.tail = (0.9 if side == "right" else -0.9, 0, 0)
         hand.parent = forearm
     
     # Legs
     for side in ["left", "right"]:
-        hip = bones.new(f"{{side}}_hip")
-        hip.parent = root
         thigh = bones.new(f"{{side}}_thigh")
-        thigh.parent = hip
+        thigh.head = (0.1 if side == "right" else -0.1, 0, 0)
+        thigh.tail = (0.1 if side == "right" else -0.1, 0, -0.5)
+        thigh.parent = root
+        
         shin = bones.new(f"{{side}}_shin")
+        shin.head = thigh.tail
+        shin.tail = (0.1 if side == "right" else -0.1, 0, -0.9)
         shin.parent = thigh
+        
         foot = bones.new(f"{{side}}_foot")
+        foot.head = shin.tail
+        foot.tail = (0.1 if side == "right" else -0.1, 0.2, -0.9)
         foot.parent = shin
     
     bpy.ops.object.mode_set(mode='OBJECT')
     return armature_object
 
-def set_bone_keyframe(armature_object, bone_name, frame, start, end):
+def set_bone_keyframe(armature_object, bone_name, frame, location, rotation):
+    if bone_name not in armature_object.pose.bones:
+        print(f"Warning: Bone '{{bone_name}}' not found in the armature.")
+        return
+
     pose_bone = armature_object.pose.bones[bone_name]
     
-    # Set location (only for root)
-    if bone_name == "root":
-        pose_bone.location = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2, (start[2] + end[2]) / 2)
-        pose_bone.keyframe_insert(data_path="location", frame=frame)
+    pose_bone.location = location
+    pose_bone.keyframe_insert(data_path="location", frame=frame)
     
-    # Set rotation
-    direction = Vector((end[0] - start[0], end[1] - start[1], end[2] - start[2]))
     pose_bone.rotation_mode = 'QUATERNION'
-    pose_bone.rotation_quaternion = direction.to_track_quat('Y', 'Z')
+    pose_bone.rotation_quaternion = rotation
     pose_bone.keyframe_insert(data_path="rotation_quaternion", frame=frame)
 
 def convert_mediapipe_to_blender(input_file, output_file):
@@ -88,26 +113,23 @@ def convert_mediapipe_to_blender(input_file, output_file):
     
     # MediaPipe landmark to bone mapping
     bone_mapping = {{
-        "root": (23, 24),  # Left hip, right hip
-        "spine": (23, 11),  # Left hip, left shoulder
-        "neck": (11, 12),  # Left shoulder, right shoulder
-        "head": (0, 1),  # Nose, left eye inner
-        "left_shoulder": (11, 13),
-        "left_upper_arm": (13, 15),
-        "left_forearm": (15, 17),
-        "left_hand": (17, 19),
-        "right_shoulder": (12, 14),
-        "right_upper_arm": (14, 16),
-        "right_forearm": (16, 18),
-        "right_hand": (18, 20),
-        "left_hip": (23, 25),
-        "left_thigh": (25, 27),
-        "left_shin": (27, 31),
-        "left_foot": (29, 31),
-        "right_hip": (24, 26),
-        "right_thigh": (26, 28),
-        "right_shin": (28, 32),
-        "right_foot": (30, 32)
+        "root": 0,  # Nose (as a central point)
+        "spine": 23,  # Left hip
+        "head": 0,  # Nose
+        "left_shoulder": 11,
+        "left_upper_arm": 13,
+        "left_forearm": 15,
+        "left_hand": 19,
+        "right_shoulder": 12,
+        "right_upper_arm": 14,
+        "right_forearm": 16,
+        "right_hand": 20,
+        "left_thigh": 23,
+        "left_shin": 25,
+        "left_foot": 27,
+        "right_thigh": 24,
+        "right_shin": 26,
+        "right_foot": 28
     }}
     
     # Set keyframes for each frame
@@ -115,12 +137,14 @@ def convert_mediapipe_to_blender(input_file, output_file):
         frame_num = frame['frame']
         landmarks = frame['landmarks']
         
-        for bone_name, (start_idx, end_idx) in bone_mapping.items():
-            start = landmarks[start_idx]
-            end = landmarks[end_idx]
-            set_bone_keyframe(armature_object, bone_name, frame_num, 
-                              (start['x'], start['y'], start['z']),
-                              (end['x'], end['y'], end['z']))
+        for bone_name, landmark_idx in bone_mapping.items():
+            landmark = landmarks[landmark_idx]
+            location = (landmark['x'], landmark['y'], landmark['z'])
+            
+            # For simplicity, we'll use identity quaternion for rotation
+            rotation = (1, 0, 0, 0)
+            
+            set_bone_keyframe(armature_object, bone_name, frame_num, location, rotation)
     
     # Save the Blender file
     bpy.ops.wm.save_as_mainfile(filepath=output_file)
